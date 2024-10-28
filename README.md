@@ -27,7 +27,7 @@ Compile the SDK
 source /opt/ros/noetic/setup.bash
 mkdir -p ~/example_ws/src
 cd ~/example_ws
-git clone git@github.com:AlphaDogDeveloper/dev_robot_control_sdk.git src/robot_control
+git clone https://github.com/AlphaDogDeveloper/dev_robot_control_sdk.git src/robot_control
 catkin_make install
 ```
 
