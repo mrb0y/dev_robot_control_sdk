@@ -1,0 +1,143 @@
+# Robot name
+name: DevQ
+
+# Robot type. 1: Quadruped; 2: Biped
+robot_type: 1
+
+# Count of joints
+num_joints: 12
+
+# SPI device path
+spi_dev: /dev/spidev1.0
+
+# IMU device path
+imu_dev: /dev/ttyS4
+
+# ROS topic name of battery state
+battery_state_topic: /alphadog_aux/battery_state
+
+# Robot control loop period in seconds
+dt: 0.005
+
+# Actuator directions relative to joins
+actuator_directions: 
+[
+    -1, -1, -1, 
+    -1, +1, +1, 
+    +1, -1, -1, 
+    +1, +1, +1 
+]
+
+# Whether set actuators' zero position before running.
+# The robot should have been calibrated before delivery. 
+# You can do calibration (set homing) again when you want to change this following `joint_zero_pos`.
+set_homing: False
+
+# Joints' position when setting actuators' zero position
+joint_zero_pos: 
+[
+    -20.81, -70.42, 155, 
+    +20.81, -70.42, 155, 
+    -20.81, -70.42, 155, 
+    +20.81, -70.42, 155
+]
+
+# FSM state lie down 
+lie_down:
+    pose:
+    [
+        -0.45, -1.21, 2.7,
+        +0.45, -1.21, 2.7,
+        -0.45, -1.21, 2.7,
+        +0.45, -1.21, 2.7
+    ]
+    kp: 
+    [
+        7.0, 9.0, 12.0,
+        7.0, 9.0, 12.0,
+        7.0, 9.0, 12.0,
+        7.0, 9.0, 12.0
+    ]
+    kd: 
+    [
+        0.6, 0.6, 0.6,
+        0.6, 0.6, 0.6,
+        0.6, 0.6, 0.6,
+        0.6, 0.6, 0.6
+    ]
+    duration: 6.0 # seconds
+
+# FSM state stand up
+stand_up: 
+    pose:
+    [
+        0.0, -0.73, 1.25,
+        0.0, -0.73, 1.25,
+        0.0, -0.73, 1.25,
+        0.0, -0.73, 1.25
+    ]
+    kp: 
+    [
+        7.0, 9.0, 12.0,
+        7.0, 9.0, 12.0,
+        7.0, 9.0, 12.0,
+        7.0, 9.0, 12.0
+    ]
+    kd: 
+    [
+        0.6, 0.6, 0.6,
+        0.6, 0.6, 0.6,
+        0.6, 0.6, 0.6,
+        0.6, 0.6, 0.6
+    ]
+    duration: 6.0 # seconds
+
+# FSM state rl model
+rl_model: 
+    pose:
+    [
+        0.0, -0.73, 1.25,
+        0.0, -0.73, 1.25,
+        0.0, -0.73, 1.25,
+        0.0, -0.73, 1.25
+    ]
+    kp: 
+    [
+        12.0, 15.0, 18.0,
+        12.0, 15.0, 18.0,
+        12.0, 15.0, 18.0,
+        12.0, 15.0, 18.0,
+    ]
+    # kp: 
+    # [
+    #     0.0, 0.0, 0.0,
+    #     0.0, 0.0, 0.0,
+    #     0.0, 0.0, 0.0,
+    #     0.0, 0.0, 0.0
+    # ]
+    kd: 
+    [
+        0.5, 0.5, 0.5,
+        0.5, 0.5, 0.5,
+        0.5, 0.5, 0.5,
+        0.5, 0.5, 0.5
+    ]
+    decimation: 4
+    model_path: model/devq/policy.mnn
+    scale: 
+        action: 1.0
+        dof_pos: 1.0
+        dof_vel: 1.0
+    # Mapping joint index from RL action to joints command
+    output_dof_mapping: [ 1, 5, 9, 0, 4, 8, 3, 7, 11, 2, 6, 10 ]
+
+# FSM state soft stop
+soft_stop: 
+    kd: 
+    [
+        0.5, 0.5, 0.5,
+        0.5, 0.5, 0.5,
+        0.5, 0.5, 0.5,
+        0.5, 0.5, 0.5
+    ]
+    duration: 6.0 # seconds
