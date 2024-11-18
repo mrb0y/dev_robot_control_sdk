@@ -163,6 +163,9 @@ public:
             {
                 last_desired_pos_[j] = desired_pos_[j];
                 action_[j] = action_host[3 + j]; // The first 3 numbers are vel
+            }
+            for (int j = 0; j < num_joints_; ++j)
+            {
                 desired_pos_[j] = target_pose_[j] + scale_.action * action_[output_dof_mapping_[j]];
             }
 
