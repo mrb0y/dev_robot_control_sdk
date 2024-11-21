@@ -4,7 +4,7 @@ An example of motion control program for WEILAN Dev series robots.
 
 SDK directory structure:
 
-- [sensorimotor_interface](https://github.com/AlphaDogDeveloper/dev_robot_control_sdk/blob/main/sensorimotor_interface) C language interface and library for communication with sensorimotors.
+- [sensorimotor_interface](https://github.com/AlphaDogDeveloper/dev_robot_control_sdk/blob/main/sensorimotor_interface) C language interface and library for communication with sensorimotors (actuators, IMU, etc).
 - [config](https://github.com/AlphaDogDeveloper/dev_robot_control_sdk/blob/main/config) Robot control configure files.
 - [include](https://github.com/AlphaDogDeveloper/dev_robot_control_sdk/blob/main/include) C++ header files of the example motion control program.
 - [src](https://github.com/AlphaDogDeveloper/dev_robot_control_sdk/blob/main/src) C++ source code of the example motion control program.
@@ -32,6 +32,8 @@ catkin_make install
 ```
 
 ## Run 
+
+Note: please ensure that no other robot control program is running and using sensorimotors (actuators, IMU, etc).
 
 ### Run robot control program
 
