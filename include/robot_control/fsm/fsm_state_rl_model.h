@@ -137,11 +137,11 @@ public:
             obs_history_[i++] = projected_gravity[2];
             for (int j = 0; j < num_joints_; ++j)
             {
-                obs_history_[i++] = (robot_data_->robot_state.joints[j].pos - target_pose_[j]) * scale_.dof_pos;
+                obs_history_[i++] = (robot_data_->robot_state.joints[input_dof_mapping_[j]].pos - target_pose_[input_dof_mapping_[j]]) * scale_.dof_pos;
             }
             for (int j = 0; j < num_joints_; ++j)
             {
-                obs_history_[i++] = robot_data_->robot_state.joints[j].vel * scale_.dof_vel;
+                obs_history_[i++] = robot_data_->robot_state.joints[input_dof_mapping_[j]].vel * scale_.dof_vel;
             }
             for (int j = 0; j < num_joints_; ++j)
             {
@@ -235,17 +235,17 @@ public:
     // Check whether need stop for safety
     bool check_safety(bool silence = false)
     {
-        // Up side down
-        Quat<float> quat;
-        quat << robot_data_->robot_state.base.quaternion_w,
-            robot_data_->robot_state.base.quaternion_x,
-            robot_data_->robot_state.base.quaternion_y,
-            robot_data_->robot_state.base.quaternion_z;
-        Vec3<float> projected_gravity = quat_rotate_inverse(quat, Vec3<float>(0., 0., -1));
-        if (projected_gravity[2] >= -0.1f)
-        {
-            return false;
-        }
+        // // Up side down
+        // Quat<float> quat;
+        // quat << robot_data_->robot_state.base.quaternion_w,
+        //     robot_data_->robot_state.base.quaternion_x,
+        //     robot_data_->robot_state.base.quaternion_y,
+        //     robot_data_->robot_state.base.quaternion_z;
+        // Vec3<float> projected_gravity = quat_rotate_inverse(quat, Vec3<float>(0., 0., -1));
+        // if (projected_gravity[2] >= -0.1f)
+        // {
+        //     return false;
+        // }
 
         return FSMState::check_safety();
     }
