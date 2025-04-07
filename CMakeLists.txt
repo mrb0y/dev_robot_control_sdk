@@ -19,6 +19,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(Eigen3 REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(BLUEZ REQUIRED bluez)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -121,6 +123,7 @@ include_directories(
   ${catkin_INCLUDE_DIRS}
   include
   ${PROJECT_SOURCE_DIR}/sensorimotor_interface/include
+  ${BLUEZ_INCLUDE_DIRS}
 )
 
 link_directories(${PROJECT_SOURCE_DIR}/sensorimotor_interface/lib/${CMAKE_SYSTEM_PROCESSOR})
@@ -144,7 +147,7 @@ add_subdirectory(third-party)
 
 file(GLOB_RECURSE sources "src/*.cpp")
 add_executable(robot_control ${sources})
-target_link_libraries(robot_control ${catkin_LIBRARIES} sensorimotor_interface MNN yaml-cpp pthread)
+target_link_libraries(robot_control ${catkin_LIBRARIES} sensorimotor_interface MNN yaml-cpp pthread ${BLUEZ_LIBRARIES})
 # add_dependencies(robot_control robot_control_generate_messages_cpp)
 
 ## Rename C++ executable without prefix

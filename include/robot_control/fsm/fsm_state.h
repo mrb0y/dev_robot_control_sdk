@@ -86,6 +86,21 @@ protected:
 public:
     FSMStateName state_name_;
 
+    /**
+     * Get the string representation of the current state name.
+     * @return String name of the state.
+     */
+    virtual const char* state_name_string() const {
+        switch (state_name_) {
+            case PASSIVE:   return "PASSIVE";
+            case LIE_DOWN:  return "LIE_DOWN";
+            case STAND_UP:  return "STAND_UP";
+            case RL_MODEL:  return "RL_MODEL";
+            case SOFT_STOP: return "SOFT_STOP";
+            default:        return "UNKNOWN";
+        }
+    }
+
 protected:
     RobotData *robot_data_;
     int num_joints_;

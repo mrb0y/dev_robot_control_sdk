@@ -56,6 +56,7 @@
   <exec_depend>message_runtime</exec_depend>
   <depend>geometry_msgs</depend>
   <depend>sensor_msgs</depend>
+  <depend>libbluetooth-dev</depend>
 
 
   <!-- The export tag contains other, unspecified, tags -->

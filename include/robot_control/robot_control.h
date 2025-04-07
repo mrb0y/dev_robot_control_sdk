@@ -4,6 +4,11 @@
 ******************************************************************************/
 #pragma once
 
+#include <ros/ros.h>
+#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/JointState.h>
+#include <sensor_msgs/BatteryState.h>
+#include <std_msgs/String.h>
 #include "robot_control/robot.h"
 #include "robot_control/remote_control.h"
 #include "fsm/fsm_state.h"
@@ -104,4 +109,11 @@ protected:
     FSMStateList fsm_;
     FSMState *current_state_ = nullptr;
     bool first_run_ = true;
+
+    // ROS Publishers for Telemetry
+    ros::NodeHandle node_handle_;
+    ros::Publisher imu_pub_;
+    ros::Publisher joint_pub_;
+    ros::Publisher battery_pub_;
+    ros::Publisher fsm_state_pub_;
 };

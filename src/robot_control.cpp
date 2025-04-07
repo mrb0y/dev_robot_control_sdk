@@ -3,6 +3,8 @@
  * @ Copyright (c) 2024 WEILAN.Co.Ltd. All Rights Reserved.
  ******************************************************************************/
 #include "robot_control/robot_control.h"
+#include "robot_control/remote_control.h" // Already included via robot_control.h but good practice
+#include "robot_control/bluetooth_remote_control.h" // Include the new controller
 #include "robot_control/fsm/fsm_state_passive.h"
 #include "robot_control/fsm/fsm_state_lie_down.h"
 #include "robot_control/fsm/fsm_state_stand_up.h"
@@ -10,17 +12,65 @@
 #include "robot_control/fsm/fsm_state_soft_stop.h"
 #include <math.h>
 #include <sys/timerfd.h>
+#include <unistd.h> // For close() and read()
+#include <sys/time.h> // For gettimeofday()
+#include <sensor_msgs/Imu.h>
+#include <sensor_msgs/JointState.h>
+#include <sensor_msgs/BatteryState.h>
+#include <std_msgs/String.h>
 
 #define ENABLE_RECORD_DATA 1
 #define ENABLE_PRINT_DATA 1
 #define PRINT_DATA_PERIOD 2.0 // seconds
 
-RobotControl::RobotControl(const std::string &config_path)
+RobotControl::RobotControl(const std::string &config_path) : remote_controller_(nullptr) // Initialize pointer
 {
-    remote_controller_ = new RosRemoteControl();
+    // Load config first
+    data_.config = YAML::LoadFile(config_path);
+
+    // Determine remote control type
+    std::string rc_type = "ros"; // Default to ROS
+    if (data_.config["remote_control_type"]) {
+        rc_type = data_.config["remote_control_type"].as<std::string>();
+    }
+
+    if (rc_type == "bluetooth") {
+        std::string bt_address = "";
+        if (data_.config["bluetooth_device_address"]) {
+            bt_address = data_.config["bluetooth_device_address"].as<std::string>();
+        } else {
+            std::cerr << "[RobotControl] Warning: remote_control_type is 'bluetooth' but bluetooth_device_address is missing in config. Attempting connection without address (will likely fail)." << std::endl;
+            // Or throw an error? For now, let it try and fail.
+        }
+        std::cout << "[RobotControl] Using Bluetooth Remote Control (Address: " << (bt_address.empty() ? "None" : bt_address) << ")" << std::endl;
+        BluetoothRemoteControl* bt_rc = new BluetoothRemoteControl(bt_address);
+        if (bt_rc->start() != 0) {
+             std::cerr << "[RobotControl] Failed to start Bluetooth Remote Control thread!" << std::endl;
+             // Handle error? Maybe fall back to ROS or throw? For now, continue but it won't work.
+             delete bt_rc; // Clean up failed instance
+             remote_controller_ = nullptr; // Ensure it's null
+        } else {
+            remote_controller_ = bt_rc;
+        }
+
+    } else { // Default or explicitly "ros"
+        std::cout << "[RobotControl] Using ROS Remote Control" << std::endl;
+        remote_controller_ = new RosRemoteControl();
+    }
+
+    // If remote controller failed to initialize, maybe create a dummy one?
+    if (!remote_controller_) {
+         std::cerr << "[RobotControl] ERROR: No remote controller initialized! Creating dummy." << std::endl;
+         // Create a dummy base class instance that does nothing? Or handle error better.
+         // For now, let it potentially crash later if null. A better approach is needed.
+         // Let's just create a ROS one as a fallback for now.
+         remote_controller_ = new RosRemoteControl();
+    }
+
+
     robot_ = new Robot(config_path);
 
-    data_.config = YAML::LoadFile(config_path);
+    // data_.config = YAML::LoadFile(config_path); // Moved up
     dt_ = data_.config["dt"].as<float>();
 
     size_t num_joints = robot_->get_state()->joints.size();
@@ -34,15 +84,30 @@ RobotControl::RobotControl(const std::string &config_path)
     fsm_.soft_stop = new FSMStateSoftStop(&data_);
 
     current_state_ = fsm_.passive;
+
+    // Initialize Telemetry Publishers
+    imu_pub_ = node_handle_.advertise<sensor_msgs::Imu>("/robot_control/telemetry/imu", 10);
+    joint_pub_ = node_handle_.advertise<sensor_msgs::JointState>("/robot_control/telemetry/joints", 10);
+    battery_pub_ = node_handle_.advertise<sensor_msgs::BatteryState>("/robot_control/telemetry/battery", 10);
+    fsm_state_pub_ = node_handle_.advertise<std_msgs::String>("/robot_control/telemetry/fsm_state", 10);
 }
 
 RobotControl::~RobotControl()
 {
-    stop();
+    stop(); // This should handle stopping the Bluetooth thread if needed
     deinitialize();
 
     delete robot_;
-    delete remote_controller_;
+    // remote_controller_ deletion is handled in stop() or here, ensure no double delete
+    if (remote_controller_) {
+        // If it's Bluetooth, stop might have been called already, but check again
+         BluetoothRemoteControl* bt_rc = dynamic_cast<BluetoothRemoteControl*>(remote_controller_);
+         if (bt_rc) {
+             bt_rc->stop(); // Ensure thread is stopped before delete
+         }
+        delete remote_controller_;
+        remote_controller_ = nullptr;
+    }
     delete fsm_.passive;
     delete fsm_.lie_down;
     delete fsm_.stand_up;
@@ -88,6 +153,13 @@ int RobotControl::start()
 void RobotControl::stop()
 {
     running_ = false;
+    // Stop Bluetooth controller thread if it exists
+    BluetoothRemoteControl* bt_rc = dynamic_cast<BluetoothRemoteControl*>(remote_controller_);
+    if (bt_rc) {
+        bt_rc->stop();
+    }
+
+    // Join main control thread
     if (control_thread_.joinable())
     {
         control_thread_.join();
@@ -154,6 +226,59 @@ void RobotControl::run()
         // Record data
         record_data();
 #endif
+
+        // Publish Telemetry Data
+        ros::Time now = ros::Time::now();
+
+        // IMU
+        sensor_msgs::Imu imu_msg;
+        imu_msg.header.stamp = now;
+        imu_msg.header.frame_id = "imu_link"; // Or appropriate frame
+        imu_msg.orientation.w = data_.robot_state.base.quaternion_w;
+        imu_msg.orientation.x = data_.robot_state.base.quaternion_x;
+        imu_msg.orientation.y = data_.robot_state.base.quaternion_y;
+        imu_msg.orientation.z = data_.robot_state.base.quaternion_z;
+        imu_msg.angular_velocity.x = data_.robot_state.base.gyro_x;
+        imu_msg.angular_velocity.y = data_.robot_state.base.gyro_y;
+        imu_msg.angular_velocity.z = data_.robot_state.base.gyro_z;
+        imu_msg.linear_acceleration.x = data_.robot_state.base.acc_x;
+        imu_msg.linear_acceleration.y = data_.robot_state.base.acc_y;
+        imu_msg.linear_acceleration.z = data_.robot_state.base.acc_z;
+        // Covariances are often left as 0 if unknown
+        imu_pub_.publish(imu_msg);
+
+        // Joints
+        sensor_msgs::JointState joint_msg;
+        joint_msg.header.stamp = now;
+        size_t num_joints = data_.robot_state.joints.size();
+        joint_msg.name.resize(num_joints);
+        joint_msg.position.resize(num_joints);
+        joint_msg.velocity.resize(num_joints);
+        joint_msg.effort.resize(num_joints);
+        for (size_t i = 0; i < num_joints; ++i) {
+            // Assuming joint names follow a pattern like "joint_0", "joint_1", ...
+            // This might need adjustment based on the actual URDF or robot model.
+            joint_msg.name[i] = "joint_" + std::to_string(i); 
+            joint_msg.position[i] = data_.robot_state.joints[i].pos;
+            joint_msg.velocity[i] = data_.robot_state.joints[i].vel;
+            joint_msg.effort[i] = data_.robot_state.joints[i].tau;
+        }
+        joint_pub_.publish(joint_msg);
+
+        // Battery (re-publish the latest received state)
+        // Note: This assumes the Robot class updates data_.robot_state.battery correctly
+        // If the battery state is only updated in the Robot class callback, 
+        // we might need a way to access it directly or have RobotControl subscribe too.
+        // For now, assume data_.robot_state.battery is reasonably up-to-date.
+        sensor_msgs::BatteryState battery_msg = data_.robot_state.battery; 
+        battery_msg.header.stamp = now; // Update timestamp
+        battery_pub_.publish(battery_msg);
+
+        // FSM State
+        std_msgs::String fsm_state_msg;
+        fsm_state_msg.data = current_state_->state_name_string(); // Assuming FSMState has a method to get name as string
+        fsm_state_pub_.publish(fsm_state_msg);
+
 
         // Wait period
         if (sizeof(missed) != read(timer_fd, &missed, sizeof(missed)))
@@ -263,6 +388,9 @@ void RobotControl::print_data()
         printf("%.3f ", data_.robot_state.joints[i].pos);
     }
     printf("\n");
+
+    // Print FSM State too
+    printf("[RobotControl] FSM State: %s\n", current_state_->state_name_string()); // Assuming FSMState has a method to get name as string
 }
 
 /**

@@ -16,6 +16,12 @@ imu_dev: /dev/ttyS4
 # ROS topic name of battery state
 battery_state_topic: /alphadog_aux/battery_state
 
+# Remote control selection ("ros" or "bluetooth")
+remote_control_type: "ros" # Default to ROS
+
+# Bluetooth device MAC address (only used if remote_control_type is "bluetooth")
+bluetooth_device_address: "XX:XX:XX:XX:XX:XX" # Replace with actual address
+
 # Robot control loop period in seconds
 dt: 0.005
 
